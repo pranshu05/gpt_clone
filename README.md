@@ -1,36 +1,135 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ChatGPT Clone
+
+A pixel-perfect ChatGPT clone built with Next.js, featuring AI-powered conversations, file uploads, memory management, and more.
+
+## Features
+
+- 🎨 **Pixel-perfect UI** - Matches ChatGPT's design and user experience
+- 🤖 **AI-powered chat** - Uses Groq/Llama models via Vercel AI SDK
+- 📁 **File uploads** - Support for images, PDFs, Word docs, and text files
+- 🧠 **Memory system** - Contextual conversations with mem0 integration
+- 📱 **Responsive design** - Works seamlessly on desktop and mobile
+- ♿ **Accessibility** - ARIA compliant with screen reader support
+- 🔄 **Real-time streaming** - Live message updates as AI responds
+- ✏️ **Message editing** - Edit and regenerate responses
+- 💾 **Persistent storage** - MongoDB for chat history and memories
+- ☁️ **Cloud storage** - Cloudinary for file management
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
+- **AI**: Vercel AI SDK, Groq API
+- **Database**: MongoDB
+- **File Storage**: Cloudinary
+- **UI Components**: Radix UI, shadcn/ui
+- **Deployment**: Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
+- Node.js 18+ 
+- MongoDB database
+- Groq API key
+- Cloudinary account
+
+### Installation
+
+1. Clone the repository:
+\`\`\`bash
+git clone https://github.com/yourusername/chatgpt-clone.git
+cd chatgpt-clone
+\`\`\`
+
+2. Install dependencies:
+\`\`\`bash
+npm install
+\`\`\`
+
+3. Set up environment variables:
+\`\`\`bash
+cp .env.example .env.local
+\`\`\`
+
+Fill in your environment variables:
+- \`MONGODB_URI\`: Your MongoDB connection string
+- \`GROQ_API_KEY\`: Your Groq API key
+- \`CLOUDINARY_CLOUD_NAME\`: Your Cloudinary cloud name
+- \`CLOUDINARY_API_KEY\`: Your Cloudinary API key
+- \`CLOUDINARY_API_SECRET\`: Your Cloudinary API secret
+
+4. Run the development server:
+\`\`\`bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+\`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Deploy to Vercel
 
-## Learn More
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add environment variables in Vercel dashboard
+4. Deploy!
 
-To learn more about Next.js, take a look at the following resources:
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/chatgpt-clone)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Environment Variables for Production
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Make sure to set these in your Vercel dashboard:
 
-## Deploy on Vercel
+- \`MONGODB_URI\`
+- \`GROQ_API_KEY\`
+- \`CLOUDINARY_CLOUD_NAME\`
+- \`CLOUDINARY_API_KEY\`
+- \`CLOUDINARY_API_SECRET\`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API Routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- \`POST /api/chat\` - Send messages to AI
+- \`POST /api/upload\` - Upload files
+- \`GET /api/chats\` - Get user's chat history
+- \`POST /api/chats\` - Create new chat
+- \`GET /api/chats/[id]\` - Get specific chat
+- \`PUT /api/chats/[id]\` - Update chat
+- \`DELETE /api/chats/[id]\` - Delete chat
+- \`POST /api/webhooks\` - Handle webhooks
+
+## File Upload Support
+
+Supported file types:
+- **Images**: PNG, JPG, JPEG, GIF, WebP
+- **Documents**: PDF, Word (.doc, .docx), Text (.txt), CSV, Markdown, JSON
+
+Maximum file size: 10MB
+
+## Memory System
+
+The app includes a sophisticated memory system that:
+- Stores conversation context
+- Provides relevant memories for better responses
+- Manages context window limits
+- Supports semantic search (with mem0 integration)
+
+## Accessibility Features
+
+- ARIA labels and roles
+- Keyboard navigation support
+- Screen reader compatibility
+- Focus management
+- High contrast support
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: \`git checkout -b feature/amazing-feature\`
+3. Commit your changes: \`git commit -m 'Add amazing feature'\`
+4. Push to the branch: \`git push origin feature/amazing-feature\`
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

@@ -1,103 +1,131 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import { useState, useEffect } from "react"
+import { ChatInterface } from "@/components/chat-interface"
+import { Sidebar } from "@/components/sidebar"
+import { MobileHeader } from "@/components/mobile-header"
+import { useChat } from "ai/react"
+import { useChatHistory } from "@/hooks/use-chat-history"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { ErrorBoundary } from "@/components/error-boundary"
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+export default function HomePage() {
+    const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [currentChatId, setCurrentChatId] = useState<string | null>(null)
+    const isMobile = useMediaQuery("(max-width: 768px)")
+    const [selectedModel, setSelectedModel] = useState("meta-llama/llama-4-scout-17b-16e-instruct")
+
+    const { chats, createChat, updateChat, deleteChat, loadChat } = useChatHistory()
+
+    const [userId] = useState(() =>
+        typeof window !== "undefined"
+            ? localStorage.getItem("chatgpt-clone-user-id") || Math.random().toString(36).substr(2, 9)
+            : "default-user",
+    )
+
+    const { messages, input, handleInputChange, handleSubmit, isLoading, reload, stop, setMessages, setInput } = useChat({
+        api: "/api/chat",
+        body: { userId, model: selectedModel },
+        onFinish: (message) => {
+            if (currentChatId) {
+                updateChat(currentChatId, [...messages, message])
+            }
+        },
+    })
+
+    const handleNewChat = () => {
+        const chatId = createChat()
+        setCurrentChatId(chatId)
+        setMessages([])
+        setInput("")
+        if (isMobile) {
+            setSidebarOpen(false)
+        }
+    }
+
+    const handleChatSelect = (chatId: string) => {
+        const chat = loadChat(chatId)
+        if (chat) {
+            setCurrentChatId(chatId)
+            setMessages(chat.messages)
+            setInput("")
+            if (isMobile) {
+                setSidebarOpen(false)
+            }
+        }
+    }
+
+    const handleChatDelete = (chatId: string) => {
+        deleteChat(chatId)
+        if (currentChatId === chatId) {
+            setCurrentChatId(null)
+            setMessages([])
+            setInput("")
+        }
+    }
+
+    useEffect(() => {
+        if (!currentChatId && messages.length > 0) {
+            const chatId = createChat(messages)
+            setCurrentChatId(chatId)
+        }
+    }, [messages, currentChatId, createChat])
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            localStorage.setItem("chatgpt-clone-user-id", userId)
+        }
+    }, [userId])
+
+    return (
+        <ErrorBoundary>
+            <div className="flex h-screen bg-white dark:bg-gray-800">
+                {/* Sidebar */}
+                <div
+                    className={`
+        ${isMobile ? "fixed inset-y-0 left-0 z-50" : "relative"}
+        ${sidebarOpen || !isMobile ? "translate-x-0" : "-translate-x-full"}
+        transition-transform duration-300 ease-in-out
+        ${isMobile ? "w-80" : "w-64"}
+        bg-gray-900 text-white
+      `}
+                >
+                    <Sidebar
+                        chats={chats}
+                        currentChatId={currentChatId}
+                        onNewChat={handleNewChat}
+                        onChatSelect={handleChatSelect}
+                        onChatDelete={handleChatDelete}
+                        onClose={() => setSidebarOpen(false)}
+                        isMobile={isMobile}
+                        selectedModel={selectedModel}
+                        onModelChange={setSelectedModel}
+                    />
+                </div>
+
+                {/* Mobile overlay */}
+                {isMobile && sidebarOpen && (
+                    <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setSidebarOpen(false)} />
+                )}
+
+                {/* Main content */}
+                <div className="flex-1 flex flex-col min-w-0">
+                    {isMobile && <MobileHeader onMenuClick={() => setSidebarOpen(true)} onNewChat={handleNewChat} />}
+
+                    <ChatInterface
+                        messages={messages}
+                        input={input}
+                        handleInputChange={handleInputChange}
+                        handleSubmit={handleSubmit}
+                        isLoading={isLoading}
+                        reload={reload}
+                        stop={stop}
+                        setMessages={setMessages}
+                        setInput={setInput}
+                        selectedModel={selectedModel}
+                    />
+                </div>
+            </div>
+        </ErrorBoundary>
+    )
 }

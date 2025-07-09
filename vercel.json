@@ -1,0 +1,17 @@
+{
+    "functions": {
+        "src/app/api/chat/route.ts": {
+            "maxDuration": 30
+        },
+        "src/app/api/upload/route.ts": {
+            "maxDuration": 30
+        }
+    },
+    "env": {
+        "MONGODB_URI": "@mongodb_uri",
+        "GROQ_API_KEY": "@groq_api_key",
+        "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
+        "CLOUDINARY_API_KEY": "@cloudinary_api_key",
+        "CLOUDINARY_API_SECRET": "@cloudinary_api_secret"
+    }
+}
