@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import type { Message } from "ai"
 
 interface Chat {
@@ -11,43 +11,64 @@ interface Chat {
     updatedAt: Date
 }
 
+const STORAGE_KEY = "chatgpt-clone-chats"
+
 export function useChatHistory() {
     const [chats, setChats] = useState<Chat[]>([])
+    const [isLoaded, setIsLoaded] = useState(false)
 
+    // Load chats from localStorage on mount
     useEffect(() => {
-        // Load chats from localStorage on mount
-        const savedChats = localStorage.getItem("chatgpt-clone-chats")
-        if (savedChats) {
+        if (typeof window !== "undefined") {
             try {
-                const parsedChats = JSON.parse(savedChats).map((chat: {
-                    id: string;
-                    title: string;
-                    messages: Message[];
-                    createdAt: string;
-                    updatedAt: string;
-                }) => ({
-                    ...chat,
-                    createdAt: new Date(chat.createdAt),
-                    updatedAt: new Date(chat.updatedAt),
-                }))
-                setChats(parsedChats)
+                const savedChats = localStorage.getItem(STORAGE_KEY)
+                if (savedChats) {
+                    const parsedChats = JSON.parse(savedChats).map(
+                        (chat: {
+                            id: string
+                            title: string
+                            messages: Message[]
+                            createdAt: string
+                            updatedAt: string
+                        }) => ({
+                            ...chat,
+                            createdAt: new Date(chat.createdAt),
+                            updatedAt: new Date(chat.updatedAt),
+                        }),
+                    )
+                    setChats(parsedChats)
+                }
             } catch (error) {
-                console.error("Failed to load chats:", error)
+                console.error("Failed to load chats from localStorage:", error)
+                // Clear corrupted data
+                localStorage.removeItem(STORAGE_KEY)
             }
+            setIsLoaded(true)
         }
     }, [])
 
+    // Save chats to localStorage whenever chats change
     useEffect(() => {
-        // Save chats to localStorage whenever chats change
-        localStorage.setItem("chatgpt-clone-chats", JSON.stringify(chats))
-    }, [chats])
+        if (isLoaded && typeof window !== "undefined") {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(chats))
+            } catch (error) {
+                console.error("Failed to save chats to localStorage:", error)
+            }
+        }
+    }, [chats, isLoaded])
 
-    const createChat = (initialMessages: Message[] = []) => {
-        const chatId = Math.random().toString(36).substr(2, 9)
-        const title =
-            initialMessages.length > 0
-                ? initialMessages[0].content.slice(0, 50) + (initialMessages[0].content.length > 50 ? "..." : "")
-                : "New Chat"
+    const createChat = useCallback((initialMessages: Message[] = []) => {
+        const chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+        // Generate title from first message or use default
+        let title = "New Chat"
+        if (initialMessages.length > 0) {
+            const firstUserMessage = initialMessages.find((m) => m.role === "user")
+            if (firstUserMessage) {
+                title = firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? "..." : "")
+            }
+        }
 
         const newChat: Chat = {
             id: chatId,
@@ -57,35 +78,61 @@ export function useChatHistory() {
             updatedAt: new Date(),
         }
 
-        setChats((prev) => [newChat, ...prev])
+        setChats((prev) => {
+            const updated = [newChat, ...prev]
+            return updated
+        })
+
         return chatId
-    }
+    }, [])
 
-    const updateChat = (chatId: string, messages: Message[]) => {
-        setChats((prev) =>
-            prev.map((chat) =>
-                chat.id === chatId
-                    ? {
-                        ...chat,
-                        messages,
-                        updatedAt: new Date(),
-                        title:
-                            messages.length > 0 && !chat.title.startsWith(messages[0].content.slice(0, 20))
-                                ? messages[0].content.slice(0, 50) + (messages[0].content.length > 50 ? "..." : "")
-                                : chat.title,
+    const updateChat = useCallback((chatId: string, messages: Message[], newTitle?: string) => {
+        setChats((prev) => {
+            const updated = prev.map((chat) => {
+                if (chat.id === chatId) {
+                    // Auto-generate title from first user message if not provided
+                    let title = newTitle || chat.title
+                    if (!newTitle && messages.length > 0 && chat.title === "New Chat") {
+                        const firstUserMessage = messages.find((m) => m.role === "user")
+                        if (firstUserMessage) {
+                            title = firstUserMessage.content.slice(0, 50) + (firstUserMessage.content.length > 50 ? "..." : "")
+                        }
                     }
-                    : chat,
-            ),
-        )
-    }
 
-    const deleteChat = (chatId: string) => {
-        setChats((prev) => prev.filter((chat) => chat.id !== chatId))
-    }
+                    return {
+                        ...chat,
+                        messages: [...messages], // Create new array to ensure reactivity
+                        updatedAt: new Date(),
+                        title,
+                    }
+                }
+                return chat
+            })
+            return updated
+        })
+    }, [])
 
-    const loadChat = (chatId: string) => {
-        return chats.find((chat) => chat.id === chatId)
-    }
+    const deleteChat = useCallback((chatId: string) => {
+        setChats((prev) => {
+            const updated = prev.filter((chat) => chat.id !== chatId)
+            return updated
+        })
+    }, [])
+
+    const loadChat = useCallback(
+        (chatId: string): Chat | null => {
+            const chat = chats.find((chat) => chat.id === chatId)
+            return chat || null
+        },
+        [chats],
+    )
+
+    const clearAllChats = useCallback(() => {
+        setChats([])
+        if (typeof window !== "undefined") {
+            localStorage.removeItem(STORAGE_KEY)
+        }
+    }, [])
 
     return {
         chats,
@@ -93,5 +140,7 @@ export function useChatHistory() {
         updateChat,
         deleteChat,
         loadChat,
+        clearAllChats,
+        isLoaded,
     }
 }

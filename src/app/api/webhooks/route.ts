@@ -44,10 +44,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 })
     }
 }
-
-// Verify webhook signature (implement based on your webhook provider)
-function verifyWebhookSignature(req: NextRequest, body: string): boolean {
-    // Implement signature verification logic here
-    // This is important for security in production
-    return true
-}
