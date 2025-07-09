@@ -1,8 +1,7 @@
-// app/api/memory-stats/route.ts
 import { MemoryManager } from "@/lib/memory-manager"
 
 const manager = new MemoryManager(
-    process.env.MONGO_URI!,
+    process.env.MONGODB_URI!,
     "gpt_clone",
     "memories"
 )

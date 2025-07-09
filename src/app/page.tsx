@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ChatInterface } from "@/components/chat-interface"
 import { Sidebar } from "@/components/sidebar"
 import { MobileHeader } from "@/components/mobile-header"
@@ -30,60 +29,80 @@ export default function HomePage() {
         api: "/api/chat",
         body: { userId, model: selectedModel },
         onFinish: () => {
-            // Handle completion on home page
+            // This will be handled in the chat page after redirect
         },
     })
 
-    const handleNewChat = () => {
+    const handleNewChat = useCallback(() => {
         // Clear current messages and stay on home
         setMessages([])
         setInput("")
         if (isMobile) {
             setSidebarOpen(false)
         }
-    }
+    }, [setMessages, setInput, isMobile])
 
-    const handleChatSelect = (chatId: string) => {
-        // Navigate to specific chat
-        router.push(`/c/${chatId}`)
-        if (isMobile) {
-            setSidebarOpen(false)
-        }
-    }
+    const handleChatSelect = useCallback(
+        (chatId: string) => {
+            // Navigate to specific chat
+            router.push(`/c/${chatId}`)
+            if (isMobile) {
+                setSidebarOpen(false)
+            }
+        },
+        [router, isMobile],
+    )
 
-    const handleChatDelete = (chatId: string) => {
-        deleteChat(chatId)
-    }
+    const handleChatDelete = useCallback(
+        (chatId: string) => {
+            deleteChat(chatId)
+        },
+        [deleteChat],
+    )
 
-    const handleChatRename = (chatId: string, newTitle: string) => {
-        const chat = loadChat(chatId)
-        if (chat) {
-            updateChat(chatId, chat.messages, newTitle)
-        }
-    }
+    const handleChatRename = useCallback(
+        (chatId: string, newTitle: string) => {
+            const chat = loadChat(chatId)
+            if (chat) {
+                updateChat(chatId, chat.messages, newTitle)
+            }
+        },
+        [loadChat, updateChat],
+    )
 
-    // Handle first message submission - create new chat with the message and redirect
-    const handleFirstMessage = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        if (!input.trim() || isLoading || !isLoaded) return
+    // Handle first message submission - create new chat and redirect
+    const handleFirstMessage = useCallback(
+        async (e: React.FormEvent<HTMLFormElement>) => {
+            e.preventDefault()
+            if (!input.trim() || isLoading || !isLoaded) return
 
-        // Create the initial user message
-        const userMessage = {
-            id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            role: "user" as const,
-            content: input.trim(),
-            createdAt: new Date(),
-        }
+            try {
+                // Create the initial user message
+                const userMessage = {
+                    id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    role: "user" as const,
+                    content: input.trim(),
+                    createdAt: new Date(),
+                }
 
-        // Create new chat with the initial message and wait for it to be saved
-        const chatId = await createChat([userMessage])
+                // Create new chat with the initial message
+                const chatId = await createChat([userMessage])
 
-        // Small delay to ensure localStorage is updated
-        await new Promise((resolve) => setTimeout(resolve, 100))
+                // Store the input temporarily for the new chat
+                sessionStorage.setItem("pendingMessage", input.trim())
+                sessionStorage.setItem("pendingChatId", chatId)
 
-        // Navigate to the new chat
-        router.push(`/c/${chatId}`)
-    }
+                // Clear input
+                setInput("")
+
+                // Navigate to the new chat immediately
+                router.push(`/c/${chatId}`)
+            } catch (error) {
+                console.error("Failed to create chat:", error)
+            }
+        },
+        [input, isLoading, isLoaded, createChat, setInput, router],
+    )
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -93,25 +112,25 @@ export default function HomePage() {
 
     return (
         <ErrorBoundary>
-            <div className="flex h-screen bg-[#212121]">
-                {/* Sidebar */}
+            <div className="flex h-screen bg-[#212121] fixed inset-0">
+                {/* Sidebar - Fixed positioning */}
                 <div
                     className={`
-                        ${isMobile ? "fixed inset-y-0 left-0 z-50" : "relative"}
+                        ${isMobile ? "fixed inset-y-0 left-0 z-50" : "fixed inset-y-0 left-0"}
                         ${sidebarOpen || !isMobile ? "translate-x-0" : "-translate-x-full"}
                         transition-transform duration-300 ease-in-out
                         w-64 flex-shrink-0
                     `}
                 >
                     <Sidebar
-                        chats={chats.map(chat => ({
+                        chats={chats.map((chat) => ({
                             ...chat,
                             messages: chat.messages
-                                .filter(msg => msg.role === "user" || msg.role === "assistant")
-                                .map(msg => ({
+                                .filter((msg) => msg.role === "user" || msg.role === "assistant")
+                                .map((msg) => ({
                                     ...msg,
                                     role: msg.role as "user" | "assistant",
-                                    createdAt: msg.createdAt ?? new Date(), // 👈 Fix here
+                                    createdAt: msg.createdAt ?? new Date(),
                                 })),
                         }))}
                         currentChatId={null}
@@ -131,8 +150,8 @@ export default function HomePage() {
                     <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setSidebarOpen(false)} />
                 )}
 
-                {/* Main content */}
-                <div className="flex-1 flex flex-col min-w-0">
+                {/* Main content - Adjusted for fixed sidebar */}
+                <div className={`flex-1 flex flex-col min-w-0 ${!isMobile ? "ml-64" : ""}`}>
                     {isMobile && <MobileHeader onMenuClick={() => setSidebarOpen(true)} onNewChat={handleNewChat} />}
 
                     <ChatInterface

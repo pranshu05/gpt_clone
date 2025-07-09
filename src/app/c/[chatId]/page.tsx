@@ -1,11 +1,11 @@
 "use client"
 
 import React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { ChatInterface } from "@/components/chat-interface"
 import { Sidebar } from "@/components/sidebar"
 import { MobileHeader } from "@/components/mobile-header"
-import { useChat } from "ai/react"
+import { useChat, Message } from "ai/react"
 import { useChatHistory } from "@/hooks/use-chat-history"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -32,21 +32,31 @@ export default function ChatPage() {
             : "default-user",
     )
 
-    const { messages, input, handleInputChange, handleSubmit, isLoading, reload, stop, setMessages, setInput } = useChat({
-        api: "/api/chat",
-        body: { userId, model: selectedModel, chatId },
-        onFinish: (message) => {
-            // Update chat with new messages including context window management
-            const updatedMessages = [...messages, message]
-            const managedMessages = contextManager.manageContextWindow(updatedMessages, selectedModel)
-            updateChat(chatId, managedMessages)
-        },
-    })
+    const { messages, input, handleInputChange, handleSubmit, isLoading, reload, stop, setMessages, setInput, append } =
+        useChat({
+            api: "/api/chat",
+            body: { userId, model: selectedModel, chatId },
+            onFinish: (message) => {
+                // Only update chat if we have a valid chatId and messages
+                if (chatId && messages.length > 0) {
+                    const updatedMessages = [...messages, message]
+                    const managedMessages = contextManager.manageContextWindow(updatedMessages, selectedModel)
+                    updateChat(chatId, managedMessages)
+                }
+            },
+        })
 
-    // Load chat messages on mount
+    // Memoize chat update function to prevent infinite loops
+    const updateChatMemoized = useCallback(
+        (id: string, msgs: Message[], title?: string) => {
+            updateChat(id, msgs, title)
+        },
+        [updateChat],
+    )
+
+    // Load chat messages on mount and handle pending messages
     useEffect(() => {
         if (chatId && chatsLoaded) {
-            // Add a small delay to ensure localStorage is fully updated
             const loadChatWithDelay = async () => {
                 // Try multiple times with increasing delays
                 for (let attempt = 0; attempt < 5; attempt++) {
@@ -54,6 +64,25 @@ export default function ChatPage() {
                     if (chat) {
                         // Chat found, load its messages
                         setMessages(chat.messages)
+
+                        // Check for pending message from home page
+                        const pendingMessage = sessionStorage.getItem("pendingMessage")
+                        const pendingChatId = sessionStorage.getItem("pendingChatId")
+
+                        if (pendingMessage && pendingChatId === chatId) {
+                            // Clear pending data
+                            sessionStorage.removeItem("pendingMessage")
+                            sessionStorage.removeItem("pendingChatId")
+
+                            // Send the pending message
+                            setTimeout(() => {
+                                append({
+                                    role: "user",
+                                    content: pendingMessage,
+                                })
+                            }, 100)
+                        }
+
                         setIsLoaded(true)
                         return
                     }
@@ -73,59 +102,75 @@ export default function ChatPage() {
 
             loadChatWithDelay()
         }
-    }, [chatId, chatsLoaded, loadChat, setMessages, router])
+    }, [chatId, chatsLoaded, loadChat, setMessages, router, append])
 
-    const handleNewChat = () => {
+    const handleNewChat = useCallback(() => {
         router.push("/")
         if (isMobile) {
             setSidebarOpen(false)
         }
-    }
+    }, [router, isMobile])
 
-    const handleChatSelect = (selectedChatId: string) => {
-        if (selectedChatId !== chatId) {
-            router.push(`/c/${selectedChatId}`)
-        }
-        if (isMobile) {
-            setSidebarOpen(false)
-        }
-    }
+    const handleChatSelect = useCallback(
+        (selectedChatId: string) => {
+            if (selectedChatId !== chatId) {
+                router.push(`/c/${selectedChatId}`)
+            }
+            if (isMobile) {
+                setSidebarOpen(false)
+            }
+        },
+        [chatId, router, isMobile],
+    )
 
-    const handleChatDelete = (deleteChatId: string) => {
-        deleteChat(deleteChatId)
-        if (deleteChatId === chatId) {
-            router.push("/")
-        }
-    }
+    const handleChatDelete = useCallback(
+        (deleteChatId: string) => {
+            deleteChat(deleteChatId)
+            if (deleteChatId === chatId) {
+                router.push("/")
+            }
+        },
+        [deleteChat, chatId, router],
+    )
 
-    const handleChatRename = (renameChatId: string, newTitle: string) => {
-        const chat = loadChat(renameChatId)
-        if (chat) {
-            updateChat(renameChatId, chat.messages, newTitle)
-        }
-    }
+    const handleChatRename = useCallback(
+        (renameChatId: string, newTitle: string) => {
+            const chat = loadChat(renameChatId)
+            if (chat) {
+                updateChatMemoized(renameChatId, chat.messages, newTitle)
+            }
+        },
+        [loadChat, updateChatMemoized],
+    )
 
     // Enhanced submit handler with context window management
-    const handleChatSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        if (!input.trim() || isLoading) return
+    const handleChatSubmit = useCallback(
+        async (e: React.FormEvent<HTMLFormElement>) => {
+            e.preventDefault()
+            if (!input.trim() || isLoading) return
 
-        // Apply context window management before submitting
-        const managedMessages = contextManager.manageContextWindow(messages, selectedModel)
-        setMessages(managedMessages)
-
-        // Submit with managed messages
-        handleSubmit(e)
-    }
-
-    // Update chat when messages change (but not on initial load)
-    useEffect(() => {
-        if (isLoaded && chatId && messages.length > 0) {
-            // Apply context window management when updating
+            // Apply context window management before submitting
             const managedMessages = contextManager.manageContextWindow(messages, selectedModel)
-            updateChat(chatId, managedMessages)
+            setMessages(managedMessages)
+
+            // Submit with managed messages
+            handleSubmit(e)
+        },
+        [input, isLoading, contextManager, messages, selectedModel, setMessages, handleSubmit],
+    )
+
+    // Update chat when messages change (but not on initial load or during loading)
+    useEffect(() => {
+        if (isLoaded && chatId && messages.length > 0 && !isLoading) {
+            // Debounce the update to prevent excessive calls
+            const timeoutId = setTimeout(() => {
+                const managedMessages = contextManager.manageContextWindow(messages, selectedModel)
+                updateChatMemoized(chatId, managedMessages)
+            }, 500)
+
+            return () => clearTimeout(timeoutId)
         }
-    }, [messages, chatId, updateChat, isLoaded, selectedModel, contextManager])
+    }, [messages, chatId, isLoaded, isLoading, selectedModel, contextManager, updateChatMemoized])
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -136,7 +181,7 @@ export default function ChatPage() {
     // Show loading state
     if (!isLoaded || !chatsLoaded) {
         return (
-            <div className="flex h-screen bg-[#212121] items-center justify-center">
+            <div className="flex h-screen bg-[#212121] items-center justify-center fixed inset-0">
                 <div className="text-center text-white">
                     <LoadingSpinner size="lg" />
                     <p className="mt-4 text-gray-400">Loading chat...</p>
@@ -148,7 +193,7 @@ export default function ChatPage() {
     // Show chat not found state
     if (chatNotFound) {
         return (
-            <div className="flex h-screen bg-[#212121] items-center justify-center">
+            <div className="flex h-screen bg-[#212121] items-center justify-center fixed inset-0">
                 <div className="text-center text-white">
                     <h2 className="text-xl font-semibold mb-2">Chat not found</h2>
                     <p className="text-gray-400 mb-4">This chat doesn&apos;t exist or has been deleted.</p>
@@ -160,27 +205,27 @@ export default function ChatPage() {
 
     return (
         <ErrorBoundary>
-            <div className="flex h-screen bg-[#212121]">
-                {/* Sidebar */}
+            <div className="flex h-screen bg-[#212121] fixed inset-0">
+                {/* Sidebar - Fixed positioning */}
                 <div
                     className={`
-                        ${isMobile ? "fixed inset-y-0 left-0 z-50" : "relative"}
+                        ${isMobile ? "fixed inset-y-0 left-0 z-50" : "fixed inset-y-0 left-0"}
                         ${sidebarOpen || !isMobile ? "translate-x-0" : "-translate-x-full"}
                         transition-transform duration-300 ease-in-out
                         w-64 flex-shrink-0
                     `}
                 >
                     <Sidebar
-                        chats={chats.map(chat => ({
+                        chats={chats.map((chat) => ({
                             ...chat,
                             messages: chat.messages
-                                .filter(msg => msg.role === "user" || msg.role === "assistant")
-                                .map(msg => ({
+                                .filter((msg) => msg.role === "user" || msg.role === "assistant")
+                                .map((msg) => ({
                                     ...msg,
                                     role: msg.role as "user" | "assistant",
-                                    createdAt: msg.createdAt ?? new Date(), // 👈 Fix here
+                                    createdAt: msg.createdAt ?? new Date(),
                                 })),
-                        }))}                        
+                        }))}
                         currentChatId={chatId}
                         onNewChat={handleNewChat}
                         onChatSelect={handleChatSelect}
@@ -198,8 +243,8 @@ export default function ChatPage() {
                     <div className="fixed inset-0 z-40 bg-black bg-opacity-50" onClick={() => setSidebarOpen(false)} />
                 )}
 
-                {/* Main content */}
-                <div className="flex-1 flex flex-col min-w-0">
+                {/* Main content - Adjusted for fixed sidebar */}
+                <div className={`flex-1 flex flex-col min-w-0 ${!isMobile ? "ml-64" : ""}`}>
                     {isMobile && <MobileHeader onMenuClick={() => setSidebarOpen(true)} onNewChat={handleNewChat} />}
 
                     <ChatInterface

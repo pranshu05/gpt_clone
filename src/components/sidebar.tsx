@@ -152,7 +152,7 @@ export function Sidebar({
             aria-label="Chat navigation"
         >
             {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-[#2d2d2d]">
+            <div className="flex items-center justify-between p-3 border-b border-[#2d2d2d] flex-shrink-0">
                 <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-white rounded-sm flex items-center justify-center" aria-hidden="true">
                         <div className="w-4 h-4 bg-black rounded-sm"></div>
@@ -161,20 +161,20 @@ export function Sidebar({
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
-                                className="text-white hover:bg-[#2d2d2d] p-1 h-auto font-medium focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                                className="text-white hover:bg-[#2d2d2d] p-1 h-auto font-medium focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button"
                                 aria-label="Select ChatGPT model"
                             >
                                 ChatGPT <ChevronDown className="h-4 w-4 ml-1" aria-hidden="true" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="bg-[#2d2d2d] border-[#4d4d4d] text-white">
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">
+                        <DropdownMenuContent align="start" className="bg-[#2d2d2d] border-[#4d4d4d] text-white chatgpt-dropdown">
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d] chatgpt-dropdown-item">
                                 <div className="flex items-center gap-2">
                                     <div className="w-4 h-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-sm"></div>
                                     <span>GPT-4</span>
                                 </div>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d] chatgpt-dropdown-item">
                                 <div className="flex items-center gap-2">
                                     <div className="w-4 h-4 bg-[#10a37f] rounded-sm"></div>
                                     <span>GPT-3.5</span>
@@ -188,7 +188,7 @@ export function Sidebar({
                         variant="ghost"
                         size="sm"
                         onClick={onClose}
-                        className="text-white hover:bg-[#2d2d2d] p-1 focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                        className="text-white hover:bg-[#2d2d2d] p-1 focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button"
                         aria-label="Close sidebar"
                     >
                         <X className="h-4 w-4" aria-hidden="true" />
@@ -197,37 +197,37 @@ export function Sidebar({
             </div>
 
             {/* Navigation */}
-            <div className="px-3 py-2 space-y-1">
+            <div className="px-3 py-2 space-y-1 flex-shrink-0">
                 <Button
                     onClick={handleNewChatClick}
-                    className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                    className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item"
                     aria-label="Start new chat"
                 >
                     <Plus className="h-4 w-4" aria-hidden="true" />
                     New chat
                 </Button>
 
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <Search className="h-4 w-4" aria-hidden="true" />
                     Search chats
                 </Button>
 
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <BookOpen className="h-4 w-4" aria-hidden="true" />
                     Library
                 </Button>
 
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <Sparkles className="h-4 w-4" aria-hidden="true" />
                     Sora
                 </Button>
 
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <Zap className="h-4 w-4" aria-hidden="true" />
                     GPTs
                 </Button>
 
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <Palette className="h-4 w-4" aria-hidden="true" />
                     DALLE
                 </Button>
@@ -249,8 +249,8 @@ export function Sidebar({
                                         <div
                                             key={chat.id}
                                             className={cn(
-                                                "group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors relative",
-                                                currentChatId === chat.id ? "bg-[#2d2d2d]" : "hover:bg-[#2d2d2d]",
+                                                "group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors relative chatgpt-sidebar-item",
+                                                currentChatId === chat.id ? "bg-[#2d2d2d] active" : "hover:bg-[#2d2d2d]",
                                             )}
                                             onClick={() => handleChatClick(chat.id)}
                                             role="listitem"
@@ -285,7 +285,7 @@ export function Sidebar({
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={(e) => handleEditStart(chat, e)}
-                                                            className="h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-[#3d3d3d] rounded focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                                                            className="h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-[#3d3d3d] rounded focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button"
                                                             aria-label={`Edit ${chat.title}`}
                                                         >
                                                             <Edit3 className="h-3 w-3" aria-hidden="true" />
@@ -294,7 +294,7 @@ export function Sidebar({
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={(e) => handleDelete(chat.id, e)}
-                                                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-400 hover:bg-[#3d3d3d] rounded focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                                                            className="h-6 w-6 p-0 text-gray-400 hover:text-red-400 hover:bg-[#3d3d3d] rounded focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button"
                                                             aria-label={`Delete ${chat.title}`}
                                                         >
                                                             <Trash2 className="h-3 w-3" aria-hidden="true" />
@@ -317,16 +317,16 @@ export function Sidebar({
             </ScrollArea>
 
             {/* Footer */}
-            <div className="border-t border-[#2d2d2d] p-3 space-y-1">
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+            <div className="border-t border-[#2d2d2d] p-3 space-y-1 flex-shrink-0">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <div className="w-4 h-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-sm" aria-hidden="true"></div>
                     Upgrade plan
                 </Button>
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <User className="h-4 w-4" aria-hidden="true" />
                     My plan
                 </Button>
-                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f]">
+                <Button className="w-full justify-start gap-3 bg-transparent hover:bg-[#2d2d2d] text-white border-none h-10 px-3 font-normal focus-visible:ring-2 focus-visible:ring-[#10a37f] chatgpt-button chatgpt-sidebar-item">
                     <Settings className="h-4 w-4" aria-hidden="true" />
                     Settings
                 </Button>
