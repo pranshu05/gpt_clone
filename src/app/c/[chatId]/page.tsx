@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-
+import React from "react"
 import { useState, useEffect } from "react"
 import { ChatInterface } from "@/components/chat-interface"
 import { Sidebar } from "@/components/sidebar"
@@ -24,8 +23,8 @@ export default function ChatPage() {
     const params = useParams()
     const chatId = params.chatId as string
 
-    const { chats, createChat, updateChat, deleteChat, loadChat, isLoaded: chatsLoaded } = useChatHistory()
-    const contextManager = new ContextWindowManager()
+    const { chats, updateChat, deleteChat, loadChat, isLoaded: chatsLoaded } = useChatHistory()
+    const contextManager = React.useMemo(() => new ContextWindowManager(), [])
 
     const [userId] = useState(() =>
         typeof window !== "undefined"
@@ -126,7 +125,7 @@ export default function ChatPage() {
             const managedMessages = contextManager.manageContextWindow(messages, selectedModel)
             updateChat(chatId, managedMessages)
         }
-    }, [messages, chatId, updateChat, isLoaded, selectedModel])
+    }, [messages, chatId, updateChat, isLoaded, selectedModel, contextManager])
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -152,7 +151,7 @@ export default function ChatPage() {
             <div className="flex h-screen bg-[#212121] items-center justify-center">
                 <div className="text-center text-white">
                     <h2 className="text-xl font-semibold mb-2">Chat not found</h2>
-                    <p className="text-gray-400 mb-4">This chat doesn't exist or has been deleted.</p>
+                    <p className="text-gray-400 mb-4">This chat doesn&apos;t exist or has been deleted.</p>
                     <p className="text-sm text-gray-500">Redirecting to home...</p>
                 </div>
             </div>
@@ -172,7 +171,16 @@ export default function ChatPage() {
                     `}
                 >
                     <Sidebar
-                        chats={chats}
+                        chats={chats.map(chat => ({
+                            ...chat,
+                            messages: chat.messages
+                                .filter(msg => msg.role === "user" || msg.role === "assistant")
+                                .map(msg => ({
+                                    ...msg,
+                                    role: msg.role as "user" | "assistant",
+                                    createdAt: msg.createdAt ?? new Date(), // 👈 Fix here
+                                })),
+                        }))}                        
                         currentChatId={chatId}
                         onNewChat={handleNewChat}
                         onChatSelect={handleChatSelect}

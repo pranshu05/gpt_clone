@@ -26,10 +26,10 @@ export default function HomePage() {
             : "default-user",
     )
 
-    const { messages, input, handleInputChange, handleSubmit, isLoading, reload, stop, setMessages, setInput } = useChat({
+    const { messages, input, handleInputChange, isLoading, reload, stop, setMessages, setInput } = useChat({
         api: "/api/chat",
         body: { userId, model: selectedModel },
-        onFinish: (message) => {
+        onFinish: () => {
             // Handle completion on home page
         },
     })
@@ -104,7 +104,16 @@ export default function HomePage() {
                     `}
                 >
                     <Sidebar
-                        chats={chats}
+                        chats={chats.map(chat => ({
+                            ...chat,
+                            messages: chat.messages
+                                .filter(msg => msg.role === "user" || msg.role === "assistant")
+                                .map(msg => ({
+                                    ...msg,
+                                    role: msg.role as "user" | "assistant",
+                                    createdAt: msg.createdAt ?? new Date(), // 👈 Fix here
+                                })),
+                        }))}
                         currentChatId={null}
                         onNewChat={handleNewChat}
                         onChatSelect={handleChatSelect}

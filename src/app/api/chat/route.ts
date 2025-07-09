@@ -7,12 +7,23 @@ import { ContextWindowManager } from "@/lib/context-window-manager"
 
 export const maxDuration = 30
 
-const memoryManager = new MemoryManager(process.env.MONGODB_URI || "", "gpt_clone", "memories")
+const memoryManager = new MemoryManager(
+    process.env.MONGODB_URI || "",
+    process.env.MONGODB_DB || "gpt_clone",
+    process.env.MONGODB_COLLECTION || "memories"
+)
 const contextManager = new ContextWindowManager()
 
 export async function POST(req: NextRequest) {
     try {
-        const { messages, model = "llama-3.1-8b-instant", userId = "default-user" } = await req.json()
+        const { messages, userId = "default-user", chatId } = await req.json()
+
+        if (!messages || !Array.isArray(messages)) {
+            return new Response(JSON.stringify({ error: "Invalid messages format" }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            })
+        }
 
         await connectToDatabase()
 
@@ -20,39 +31,77 @@ export async function POST(req: NextRequest) {
         const lastMessage = messages[messages.length - 1]
         const hasImages = lastMessage?.content?.includes("[Image uploaded:")
 
-        // Process the message content to extract image URLs
-        const processedMessages = messages.map((msg: any) => {
-            if (msg.content && msg.content.includes("[Image uploaded:")) {
+        // Process the message content to extract image URLs and document content
+        type MessageRole = "function" | "system" | "tool" | "user" | "assistant" | "data";
+        interface Message {
+            role: MessageRole
+            content: string
+            [key: string]: unknown
+        }
+
+        const processedMessages = messages.map((msg: Message, idx: number): Message & { id: string } => {
+            // Ensure role is properly typed
+            const role: MessageRole = msg.role as MessageRole;
+
+            // Always ensure id exists
+            const id = typeof msg.id === "string" ? msg.id : `msg-${idx}-${Date.now()}`;
+
+            if (msg.content && (msg.content.includes("[Image uploaded:") || msg.content.includes("[Document:"))) {
                 // Extract image URLs from the content
                 const imageUrlRegex = /\[Image uploaded: .+ - (https?:\/\/[^\]]+)\]/g
-                const imageUrls: string[] = []
-                let match
+                const documentRegex = /\[Document: ([^\]]+)\]\n([^]*?)(?=\n\[|$)/g
 
+                const imageUrls: string[] = []
+                const documents: { name: string; content: string }[] = []
+
+                let match
                 while ((match = imageUrlRegex.exec(msg.content)) !== null) {
                     imageUrls.push(match[1])
                 }
 
-                // Clean the content and add image analysis context
-                let cleanContent = msg.content.replace(/\[Image uploaded: .+ - https?:\/\/[^\]]+\]/g, "").trim()
+                while ((match = documentRegex.exec(msg.content)) !== null) {
+                    documents.push({ name: match[1], content: match[2] })
+                }
+
+                // Clean the content and add analysis context
+                let cleanContent = msg.content
+                    .replace(/\[Image uploaded: .+ - https?:\/\/[^\]]+\]/g, "")
+                    .replace(/\[Document: [^\]]+\]\n[^]*?(?=\n\[|$)/g, "")
+                    .trim()
 
                 if (imageUrls.length > 0) {
-                    cleanContent = `${cleanContent}\n\nI have uploaded ${imageUrls.length} image(s). Please analyze the image(s) and describe what you see. The image URLs are: ${imageUrls.join(", ")}`
+                    cleanContent += `\n\nI have uploaded ${imageUrls.length} image(s). Please analyze the image(s) and describe what you see. The image URLs are: ${imageUrls.join(", ")}`
+                }
+
+                if (documents.length > 0) {
+                    cleanContent += `\n\nI have uploaded ${documents.length} document(s). Here are the contents:\n\n`
+                    documents.forEach((doc, index) => {
+                        cleanContent += `Document ${index + 1} (${doc.name}):\n${doc.content}\n\n`
+                    })
                 }
 
                 return {
                     ...msg,
+                    id,
+                    role,
                     content: cleanContent,
                 }
             }
-            return msg
+            return {
+                ...msg,
+                id,
+                role,
+            }
         })
 
+        // Get relevant memories
         const memories = await memoryManager.getRelevantMemories(
             userId,
             processedMessages[processedMessages.length - 1]?.content || "",
         )
 
-        const managedMessages = contextManager.manageContextWindow(processedMessages, model, memories)
+        // Manage context window
+        const managedMessages = contextManager.manageContextWindow(processedMessages, "llama-3.3-70b-versatile", memories)
 
         const coreMessages = [
             ...(memories.length > 0
@@ -77,25 +126,50 @@ export async function POST(req: NextRequest) {
         ] as import("ai").CoreMessage[]
 
         const result = await streamText({
-            model: groq(model),
+            model: groq("llama-3.3-70b-versatile"),
             messages: coreMessages,
             temperature: 0.7,
-            maxTokens: contextManager.getMaxTokensForModel(model),
+            maxTokens: contextManager.getMaxTokensForModel("llama-3.3-70b-versatile"),
             async onFinish(completion) {
-                await memoryManager.addMemory(
-                    userId,
-                    `User: ${processedMessages[processedMessages.length - 1]?.content}\nAssistant: ${completion.text}`,
-                )
+                try {
+                    // Store memory
+                    await memoryManager.addMemory(
+                        userId,
+                        `User: ${processedMessages[processedMessages.length - 1]?.content}\nAssistant: ${completion.text}`,
+                    )
+
+                    // Trigger webhook for completion
+                    if (process.env.WEBHOOK_URL) {
+                        fetch(process.env.WEBHOOK_URL, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                type: "chat.completed",
+                                data: { userId, chatId, messageCount: messages.length },
+                            }),
+                        }).catch(console.error)
+                    }
+                } catch (error) {
+                    console.error("Error in onFinish:", error)
+                }
             },
         })
 
-        // ✅ Return compatible event stream for useChat()
         return result.toAIStreamResponse()
     } catch (error) {
         console.error("Chat API error:", error)
-        return new Response(JSON.stringify({ error: "Internal server error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-        })
+        return new Response(
+            JSON.stringify({
+                error: "Internal server error",
+                details:
+                    process.env.NODE_ENV === "development" && error && typeof error === "object" && "message" in error
+                        ? (error as { message?: string }).message
+                        : undefined,
+            }),
+            {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+            },
+        )
     }
 }

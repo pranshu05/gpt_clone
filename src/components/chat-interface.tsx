@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowDown, Share, MoreHorizontal, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ContextIndicator } from "./context-indicator"
+import { useAnnouncer } from "./accessibility-announcer"
 
 interface UploadedFile {
     id: string
@@ -51,14 +52,13 @@ export function ChatInterface({
     setMessages,
     setInput,
     selectedModel,
-    isNewChat = false,
     userId,
-    chatId,
 }: ChatInterfaceProps) {
     const [showScrollButton, setShowScrollButton] = useState(false)
     const [attachedFiles, setAttachedFiles] = useState<UploadedFile[]>([])
     const scrollAreaRef = useRef<HTMLDivElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const { announce } = useAnnouncer()
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -74,8 +74,14 @@ export function ChatInterface({
         // Auto-scroll to bottom when new messages arrive
         if (messages.length > 0) {
             setTimeout(() => scrollToBottom(), 100)
+
+            // Announce new messages for screen readers
+            const lastMessage = messages[messages.length - 1]
+            if (lastMessage && lastMessage.role === "assistant") {
+                announce(`Assistant responded: ${lastMessage.content.slice(0, 100)}...`)
+            }
         }
-    }, [messages.length])
+    }, [messages, announce]) // Updated dependency array
 
     const handleMessageEdit = (messageId: string, newContent: string) => {
         const messageIndex = messages.findIndex((m) => m.id === messageId)
@@ -86,11 +92,12 @@ export function ChatInterface({
         updatedMessages[messageIndex] = {
             ...updatedMessages[messageIndex],
             content: newContent,
-            createdAt: new Date(), // Update timestamp for edited message
+            createdAt: new Date(),
         }
 
         setMessages(updatedMessages)
         setInput("")
+        announce("Message edited and regenerating response")
 
         // Trigger a new completion after a brief delay
         setTimeout(() => {
@@ -109,6 +116,7 @@ export function ChatInterface({
         // Remove the message and all messages after it, then regenerate
         const updatedMessages = messages.slice(0, messageIndex)
         setMessages(updatedMessages)
+        announce("Regenerating response")
 
         // Trigger regeneration
         setTimeout(() => {
@@ -118,6 +126,9 @@ export function ChatInterface({
 
     const handleFilesAttached = (files: UploadedFile[]) => {
         setAttachedFiles(files)
+        if (files.length > 0) {
+            announce(`${files.length} file(s) attached`)
+        }
     }
 
     const handleEnhancedSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -143,7 +154,6 @@ export function ChatInterface({
         }
 
         // Temporarily update input
-        const originalInput = input
         setInput(enhancedInput)
 
         // Submit with enhanced input
@@ -151,31 +161,30 @@ export function ChatInterface({
 
         // Clear attached files
         setAttachedFiles([])
+        announce("Message sent")
 
         // Restore original input (will be cleared by form submission)
         setTimeout(() => setInput(""), 100)
     }
 
-    const getChatTitle = () => {
-        if (messages.length === 0) return "ChatGPT"
-        const firstUserMessage = messages.find((m) => m.role === "user")
-        return firstUserMessage?.content.slice(0, 50) + (firstUserMessage?.content.length > 50 ? "..." : "") || "New Chat"
-    }
-
     return (
-        <div className="flex flex-col h-full bg-[#212121]">
-            {/* Header - matches screenshot exactly */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#2d2d2d]">
+        <div className="flex flex-col h-full bg-[#212121]" role="main" aria-label="Chat interface">
+            {/* Header - matches ChatGPT exactly */}
+            <header className="flex items-center justify-between px-4 py-3 border-b border-[#2d2d2d]" role="banner">
                 <div className="flex items-center gap-3">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="text-white hover:bg-[#2d2d2d] font-medium text-lg">
-                                ChatGPT <ChevronDown className="h-4 w-4 ml-1" />
+                            <Button
+                                variant="ghost"
+                                className="text-white hover:bg-[#2d2d2d] font-medium text-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                                aria-label="Select ChatGPT model"
+                            >
+                                ChatGPT <ChevronDown className="h-4 w-4 ml-1" aria-hidden="true" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="bg-[#2d2d2d] border-[#4d4d4d] text-white">
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d]">GPT-4</DropdownMenuItem>
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d]">GPT-3.5</DropdownMenuItem>
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">GPT-4</DropdownMenuItem>
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">GPT-3.5</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -183,19 +192,29 @@ export function ChatInterface({
                     {messages.length > 0 && <ContextIndicator messages={messages} selectedModel={selectedModel} />}
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg">
-                        <Share className="h-4 w-4 mr-2" />
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                        aria-label="Share conversation"
+                    >
+                        <Share className="h-4 w-4 mr-2" aria-hidden="true" />
                         Share
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg">
-                        <MoreHorizontal className="h-4 w-4" />
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                        aria-label="More options"
+                    >
+                        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
                     </Button>
                 </div>
-            </div>
+            </header>
 
             {/* Messages */}
-            <div className="flex-1 relative">
-                <ScrollArea className="h-full" onScrollCapture={handleScroll} ref={scrollAreaRef}>
+            <div className="flex-1 relative" role="log" aria-live="polite" aria-label="Chat messages">
+                <ScrollArea className="h-full scrollbar-thin" onScrollCapture={handleScroll} ref={scrollAreaRef}>
                     {messages?.length === 0 ? (
                         <EmptyState />
                     ) : (
@@ -211,7 +230,7 @@ export function ChatInterface({
                                     isStreaming={isLoading && index === messages.length - 1}
                                 />
                             ))}
-                            <div ref={messagesEndRef} />
+                            <div ref={messagesEndRef} aria-hidden="true" />
                         </div>
                     )}
                 </ScrollArea>
@@ -220,16 +239,17 @@ export function ChatInterface({
                     <Button
                         variant="outline"
                         size="sm"
-                        className="absolute bottom-4 right-4 rounded-full shadow-lg bg-[#2f2f2f] border-[#4d4d4d] text-white hover:bg-[#3f3f3f]"
+                        className="absolute bottom-4 right-4 rounded-full shadow-lg bg-[#2f2f2f] border-[#4d4d4d] text-white hover:bg-[#3f3f3f] focus-visible:ring-2 focus-visible:ring-[#10a37f]"
                         onClick={scrollToBottom}
+                        aria-label="Scroll to bottom"
                     >
-                        <ArrowDown className="h-4 w-4" />
+                        <ArrowDown className="h-4 w-4" aria-hidden="true" />
                     </Button>
                 )}
             </div>
 
             {/* Input */}
-            <div className="p-4">
+            <div className="p-4" role="region" aria-label="Message input">
                 <ChatInput
                     input={input}
                     handleInputChange={handleInputChange}
@@ -241,10 +261,16 @@ export function ChatInterface({
                     onFilesAttached={handleFilesAttached}
                 />
 
-                {/* Footer text - matches screenshot */}
+                {/* Footer text - matches ChatGPT */}
                 <p className="text-xs text-gray-400 text-center mt-2">
                     ChatGPT can make mistakes. Check important info.{" "}
-                    <button className="underline hover:text-gray-300">Cookie Preferences</button>.
+                    <button
+                        className="underline hover:text-gray-300 focus-visible:ring-2 focus-visible:ring-[#10a37f] rounded"
+                        aria-label="Cookie preferences"
+                    >
+                        Cookie Preferences
+                    </button>
+                    .
                 </p>
             </div>
         </div>

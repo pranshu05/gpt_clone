@@ -10,16 +10,28 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onMenuClick, onNewChat }: MobileHeaderProps) {
     return (
-        <div className="flex items-center justify-between p-4 border-b bg-white dark:bg-gray-800">
-            <Button variant="ghost" size="sm" onClick={onMenuClick} className="h-8 w-8 p-0">
-                <Menu className="h-4 w-4" />
+        <header className="flex items-center justify-between p-4 border-b border-[#2d2d2d] bg-[#212121] md:hidden">
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMenuClick}
+                className="h-8 w-8 p-0 text-white hover:bg-[#2d2d2d] focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                aria-label="Open sidebar menu"
+            >
+                <Menu className="h-4 w-4" aria-hidden="true" />
             </Button>
 
-            <h1 className="font-semibold text-lg">ChatGPT</h1>
+            <h1 className="font-semibold text-lg text-white">ChatGPT</h1>
 
-            <Button variant="ghost" size="sm" onClick={onNewChat} className="h-8 w-8 p-0">
-                <Plus className="h-4 w-4" />
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={onNewChat}
+                className="h-8 w-8 p-0 text-white hover:bg-[#2d2d2d] focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                aria-label="Start new chat"
+            >
+                <Plus className="h-4 w-4" aria-hidden="true" />
             </Button>
-        </div>
+        </header>
     )
 }

@@ -22,18 +22,35 @@ export function AccessibilityAnnouncer({ message, priority = "polite" }: Accessi
 // Hook for programmatic announcements
 export function useAnnouncer() {
     const announce = (message: string, priority: "polite" | "assertive" = "polite") => {
-        const announcer = document.createElement("div")
-        announcer.setAttribute("aria-live", priority)
-        announcer.setAttribute("aria-atomic", "true")
-        announcer.className = "sr-only"
-        announcer.textContent = message
+        // Use the existing aria-live regions from layout
+        const region =
+            priority === "assertive"
+                ? document.getElementById("aria-live-region-assertive")
+                : document.getElementById("aria-live-region")
 
-        document.body.appendChild(announcer)
+        if (region) {
+            region.textContent = message
+            // Clear after announcement to allow repeated messages
+            setTimeout(() => {
+                region.textContent = ""
+            }, 1000)
+        } else {
+            // Fallback: create temporary announcer
+            const announcer = document.createElement("div")
+            announcer.setAttribute("aria-live", priority)
+            announcer.setAttribute("aria-atomic", "true")
+            announcer.className = "sr-only"
+            announcer.textContent = message
 
-        // Remove after announcement
-        setTimeout(() => {
-            document.body.removeChild(announcer)
-        }, 1000)
+            document.body.appendChild(announcer)
+
+            // Remove after announcement
+            setTimeout(() => {
+                if (document.body.contains(announcer)) {
+                    document.body.removeChild(announcer)
+                }
+            }, 1000)
+        }
     }
 
     return { announce }

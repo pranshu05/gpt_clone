@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client"
 
 import type React from "react"
@@ -8,6 +9,7 @@ import { Send, Square, Plus, Mic, Zap, X, FileText, ImageIcon, Paperclip } from 
 import { cn } from "@/lib/utils"
 import { useDropzone } from "react-dropzone"
 import { toast } from "@/hooks/use-toast"
+import { useAnnouncer } from "./accessibility-announcer"
 
 interface ChatInputProps {
     input: string
@@ -38,7 +40,6 @@ export function ChatInput({
     handleSubmit,
     isLoading,
     stop,
-    setInput,
     userId,
     onFilesAttached,
 }: ChatInputProps) {
@@ -46,12 +47,15 @@ export function ChatInput({
     const [isUploading, setIsUploading] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const { announce } = useAnnouncer()
 
     const onDrop = useCallback(
         async (acceptedFiles: File[]) => {
             if (acceptedFiles.length === 0) return
 
             setIsUploading(true)
+            announce(`Uploading ${acceptedFiles.length} file(s)`)
+
             const uploadPromises = acceptedFiles.map(async (file) => {
                 try {
                     const formData = new FormData()
@@ -82,6 +86,7 @@ export function ChatInput({
                         description: `Failed to upload ${file.name}`,
                         variant: "destructive",
                     })
+                    announce(`Failed to upload ${file.name}`)
                     return null
                 }
             })
@@ -104,9 +109,10 @@ export function ChatInput({
                     title: "Files uploaded",
                     description: `Successfully uploaded ${successfulUploads.length} file(s)`,
                 })
+                announce(`Successfully uploaded ${successfulUploads.length} file(s)`)
             }
         },
-        [userId, onFilesAttached],
+        [userId, onFilesAttached, announce],
     )
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -152,7 +158,13 @@ export function ChatInput({
 
     const removeFile = (fileId: string) => {
         setUploadedFiles((prev) => {
+            const fileToRemove = prev.find((f) => f.id === fileId)
             const newFiles = prev.filter((file) => file.id !== fileId)
+
+            if (fileToRemove) {
+                announce(`Removed ${fileToRemove.name}`)
+            }
+
             // Notify parent component about file removal
             if (onFilesAttached) {
                 onFilesAttached(newFiles)
@@ -187,19 +199,24 @@ export function ChatInput({
         <div className="w-full max-w-3xl mx-auto px-4 pb-4">
             {/* File previews */}
             {uploadedFiles.length > 0 && (
-                <div className="mb-4 flex flex-wrap gap-2">
+                <div className="mb-4 flex flex-wrap gap-2" role="region" aria-label="Attached files">
                     {uploadedFiles.map((file) => (
                         <div
                             key={file.id}
                             className="flex items-center gap-2 bg-[#2f2f2f] border border-[#4d4d4d] rounded-lg p-2 max-w-xs"
+                            role="listitem"
                         >
                             {file.isImage ? (
                                 <div className="flex items-center gap-2">
-                                    <img src={file.url || "/placeholder.svg"} alt={file.name} className="w-8 h-8 object-cover rounded" />
-                                    <ImageIcon className="h-4 w-4 text-blue-400 shrink-0" />
+                                    <img
+                                        src={file.url || "/placeholder.svg"}
+                                        alt={`Preview of ${file.name}`}
+                                        className="w-8 h-8 object-cover rounded"
+                                    />
+                                    <ImageIcon className="h-4 w-4 text-blue-400 shrink-0" aria-hidden="true" />
                                 </div>
                             ) : (
-                                <FileText className="h-4 w-4 text-green-400 shrink-0" />
+                                <FileText className="h-4 w-4 text-green-400 shrink-0" aria-hidden="true" />
                             )}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm text-white truncate">{file.name}</p>
@@ -210,9 +227,10 @@ export function ChatInput({
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeFile(file.id)}
-                                className="h-6 w-6 p-0 text-gray-400 hover:text-red-400 hover:bg-[#4d4d4d] rounded shrink-0"
+                                className="h-6 w-6 p-0 text-gray-400 hover:text-red-400 hover:bg-[#4d4d4d] rounded shrink-0 focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                                aria-label={`Remove ${file.name}`}
                             >
-                                <X className="h-3 w-3" />
+                                <X className="h-3 w-3" aria-hidden="true" />
                             </Button>
                         </div>
                     ))}
@@ -223,7 +241,7 @@ export function ChatInput({
                 <div
                     {...getRootProps()}
                     className={cn(
-                        "relative bg-[#2f2f2f] border border-[#4d4d4d] rounded-3xl transition-all duration-200",
+                        "relative bg-[#2f2f2f] border border-[#4d4d4d] rounded-3xl transition-all duration-200 chatgpt-input",
                         isDragActive && "border-[#565656] bg-[#3f3f3f]",
                         "focus-within:border-[#565656]",
                     )}
@@ -233,7 +251,7 @@ export function ChatInput({
                     {isDragActive && (
                         <div className="absolute inset-0 bg-[#3f3f3f] bg-opacity-90 rounded-3xl flex items-center justify-center z-10">
                             <div className="text-center text-white">
-                                <Paperclip className="h-8 w-8 mx-auto mb-2" />
+                                <Paperclip className="h-8 w-8 mx-auto mb-2" aria-hidden="true" />
                                 <p>Drop files here to upload</p>
                             </div>
                         </div>
@@ -245,11 +263,12 @@ export function ChatInput({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#4d4d4d] rounded-lg shrink-0"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#4d4d4d] rounded-lg shrink-0 focus-visible:ring-2 focus-visible:ring-[#10a37f]"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isLoading || isUploading}
+                            aria-label="Attach files"
                         >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-4 w-4" aria-hidden="true" />
                         </Button>
 
                         {/* Text input */}
@@ -262,6 +281,7 @@ export function ChatInput({
                             className="flex-1 min-h-[24px] max-h-[200px] resize-none border-0 bg-transparent text-white placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 text-base leading-6"
                             disabled={isLoading || isUploading}
                             rows={1}
+                            aria-label="Message input"
                         />
 
                         {/* Tools button */}
@@ -269,9 +289,10 @@ export function ChatInput({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-8 px-3 text-gray-400 hover:text-white hover:bg-[#4d4d4d] rounded-lg shrink-0 text-sm font-medium"
+                            className="h-8 px-3 text-gray-400 hover:text-white hover:bg-[#4d4d4d] rounded-lg shrink-0 text-sm font-medium focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                            aria-label="AI Tools"
                         >
-                            <Zap className="h-4 w-4 mr-1" />
+                            <Zap className="h-4 w-4 mr-1" aria-hidden="true" />
                             Tools
                         </Button>
 
@@ -280,15 +301,20 @@ export function ChatInput({
                             type={isLoading ? "button" : "submit"}
                             size="sm"
                             className={cn(
-                                "h-8 w-8 p-0 rounded-lg shrink-0 transition-all duration-200",
+                                "h-8 w-8 p-0 rounded-lg shrink-0 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#10a37f]",
                                 (input.trim() || uploadedFiles.length > 0) && !isLoading
                                     ? "bg-white text-black hover:bg-gray-200"
                                     : "bg-[#4d4d4d] text-gray-400 cursor-not-allowed",
                             )}
                             onClick={isLoading ? stop : undefined}
                             disabled={(!input.trim() && uploadedFiles.length === 0 && !isLoading) || isUploading}
+                            aria-label={isLoading ? "Stop generation" : "Send message"}
                         >
-                            {isLoading ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                            {isLoading ? (
+                                <Square className="h-4 w-4" aria-hidden="true" />
+                            ) : (
+                                <Send className="h-4 w-4" aria-hidden="true" />
+                            )}
                         </Button>
 
                         {/* Microphone button */}
@@ -296,9 +322,10 @@ export function ChatInput({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#4d4d4d] rounded-lg shrink-0"
+                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#4d4d4d] rounded-lg shrink-0 focus-visible:ring-2 focus-visible:ring-[#10a37f]"
+                            aria-label="Voice input"
                         >
-                            <Mic className="h-4 w-4" />
+                            <Mic className="h-4 w-4" aria-hidden="true" />
                         </Button>
                     </div>
                 </div>
@@ -315,6 +342,7 @@ export function ChatInput({
                         }
                     }}
                     className="hidden"
+                    aria-hidden="true"
                 />
             </form>
 
