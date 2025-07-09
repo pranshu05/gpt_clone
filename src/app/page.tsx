@@ -28,12 +28,19 @@ export default function HomePage() {
     const { messages, input, handleInputChange, isLoading, reload, stop, setMessages, setInput } = useChat({
         api: "/api/chat",
         body: { userId, model: selectedModel },
-        onFinish: () => {
+        onFinish: (message) => {
+            console.log("Home page chat finished:", message)
             // This will be handled in the chat page after redirect
         },
     })
 
+    // Debug: Log messages state
+    useEffect(() => {
+        console.log("Messages state in home page:", messages)
+    }, [messages])
+
     const handleNewChat = useCallback(() => {
+        console.log("New chat clicked")
         // Clear current messages and stay on home
         setMessages([])
         setInput("")
@@ -44,6 +51,7 @@ export default function HomePage() {
 
     const handleChatSelect = useCallback(
         (chatId: string) => {
+            console.log("Chat selected:", chatId)
             // Navigate to specific chat
             router.push(`/c/${chatId}`)
             if (isMobile) {
@@ -55,6 +63,7 @@ export default function HomePage() {
 
     const handleChatDelete = useCallback(
         (chatId: string) => {
+            console.log("Chat deleted:", chatId)
             deleteChat(chatId)
         },
         [deleteChat],
@@ -62,6 +71,7 @@ export default function HomePage() {
 
     const handleChatRename = useCallback(
         (chatId: string, newTitle: string) => {
+            console.log("Chat renamed:", chatId, newTitle)
             const chat = loadChat(chatId)
             if (chat) {
                 updateChat(chatId, chat.messages, newTitle)
@@ -74,7 +84,12 @@ export default function HomePage() {
     const handleFirstMessage = useCallback(
         async (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault()
-            if (!input.trim() || isLoading || !isLoaded) return
+            console.log("First message submitted:", input)
+
+            if (!input.trim() || isLoading || !isLoaded) {
+                console.log("First message blocked - no input, loading, or not loaded")
+                return
+            }
 
             try {
                 // Create the initial user message
@@ -85,8 +100,11 @@ export default function HomePage() {
                     createdAt: new Date(),
                 }
 
+                console.log("Creating chat with user message:", userMessage)
+
                 // Create new chat with the initial message
                 const chatId = await createChat([userMessage])
+                console.log("Chat created with ID:", chatId)
 
                 // Store the input temporarily for the new chat
                 sessionStorage.setItem("pendingMessage", input.trim())

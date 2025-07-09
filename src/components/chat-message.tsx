@@ -33,6 +33,14 @@ export function ChatMessage({ message, isLast, onEdit, onRegenerate, isLoading, 
     const isUser = message.role === "user"
     const isAssistant = message.role === "assistant"
 
+    console.log(`ChatMessage rendering:`, {
+        id: message.id,
+        role: message.role,
+        content: message.content?.slice(0, 50) + "...",
+        isUser,
+        isAssistant,
+    })
+
     // Handle typing animation for assistant messages
     useEffect(() => {
         if (isAssistant && isLast && message.content && !typingComplete) {
@@ -52,7 +60,7 @@ export function ChatMessage({ message, isLast, onEdit, onRegenerate, isLoading, 
             setTypingComplete(false)
             setShowTyping(false)
         }
-    }, [message.content, editContent])
+    }, [message.content])
 
     // Handle edit functionality
     const handleEdit = useCallback(() => {
@@ -106,6 +114,12 @@ export function ChatMessage({ message, isLast, onEdit, onRegenerate, isLoading, 
             window.removeEventListener("editMessage", handleEditEvent as EventListener)
         }
     }, [message.id])
+
+    // Don't render if message has no content
+    if (!message.content && !isLoading) {
+        console.log("Message has no content, not rendering:", message)
+        return null
+    }
 
     return (
         <div

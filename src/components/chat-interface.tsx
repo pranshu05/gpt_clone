@@ -149,48 +149,72 @@ export function ChatInterface({
         [announce],
     )
 
+    // Enhanced submit handler that processes files but doesn't interfere with message display
     const handleEnhancedSubmit = useCallback(
         (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault()
 
-            // Create enhanced input with file information
-            let enhancedInput = input
+            console.log("Form submitted with input:", input)
+            console.log("Current messages:", messages)
+            console.log("Attached files:", attachedFiles)
 
-            if (attachedFiles.length > 0) {
-                const fileDescriptions = attachedFiles
-                    .map((file) => {
-                        if (file.isImage) {
-                            return `[Image uploaded: ${file.name} - ${file.url}]`
-                        } else if (file.processedContent) {
-                            return `[Document: ${file.name}]\n${file.processedContent.slice(0, 2000)}${file.processedContent.length > 2000 ? "..." : ""}`
-                        } else {
-                            return `[File: ${file.name}]`
-                        }
-                    })
-                    .join("\n\n")
-
-                enhancedInput = `${input}\n\n${fileDescriptions}`.trim()
+            // Don't modify input if there are no files - let useChat handle it naturally
+            if (attachedFiles.length === 0) {
+                console.log("No files attached, submitting normally")
+                handleSubmit(e)
+                announce("Message sent")
+                return
             }
 
-            // Store original input
+            // Only modify input if there are files
+            let enhancedInput = input
 
-            // Temporarily update input for submission
-            setInput(enhancedInput)
+            const fileDescriptions = attachedFiles
+                .map((file) => {
+                    if (file.isImage) {
+                        return `[Image uploaded: ${file.name} - ${file.url}]`
+                    } else if (file.processedContent) {
+                        return `[Document: ${file.name}]\n${file.processedContent.slice(0, 2000)}${file.processedContent.length > 2000 ? "..." : ""}`
+                    } else {
+                        return `[File: ${file.name}]`
+                    }
+                })
+                .join("\n\n")
 
-            // Submit with enhanced input
+            enhancedInput = `${input}\n\n${fileDescriptions}`.trim()
+
+            console.log("Enhanced input with files:", enhancedInput)
+
+            // Create a new form event with the enhanced input
+            const formData = new FormData(e.currentTarget)
+            formData.set("input", enhancedInput)
+
+            // Temporarily update the input value for submission
+            const originalValue = (e.currentTarget.elements.namedItem("input") as HTMLTextAreaElement)?.value
+            const inputElement = e.currentTarget.elements.namedItem("input") as HTMLTextAreaElement
+            if (inputElement) {
+                inputElement.value = enhancedInput
+            }
+
+            // Submit the form
             handleSubmit(e)
 
-            // Clear attached files and restore input
-            setAttachedFiles([])
-            announce("Message sent")
+            // Restore original value
+            if (inputElement && originalValue !== undefined) {
+                inputElement.value = originalValue
+            }
 
-            // Reset input after submission
-            setTimeout(() => {
-                setInput("")
-            }, 50)
+            // Clear attached files
+            setAttachedFiles([])
+            announce("Message sent with attachments")
         },
-        [input, attachedFiles, setInput, handleSubmit, announce],
+        [input, attachedFiles, handleSubmit, announce],
     )
+
+    // Debug: Log messages changes
+    useEffect(() => {
+        console.log("Messages updated:", messages)
+    }, [messages])
 
     return (
         <div className="flex flex-col h-full bg-[#212121] chatgpt-main" role="main" aria-label="Chat interface">
@@ -260,17 +284,20 @@ export function ChatInterface({
                         <EmptyState />
                     ) : (
                         <div>
-                            {messages?.map((message, index) => (
-                                <ChatMessage
-                                    key={`${message.id}-${index}`}
-                                    message={message}
-                                    isLast={index === messages.length - 1}
-                                    onEdit={handleMessageEdit}
-                                    onRegenerate={handleMessageRegenerate}
-                                    isLoading={isLoading && index === messages.length - 1}
-                                    isStreaming={isLoading && index === messages.length - 1}
-                                />
-                            ))}
+                            {messages?.map((message, index) => {
+                                console.log(`Rendering message ${index}:`, message)
+                                return (
+                                    <ChatMessage
+                                        key={`${message.id}-${index}`}
+                                        message={message}
+                                        isLast={index === messages.length - 1}
+                                        onEdit={handleMessageEdit}
+                                        onRegenerate={handleMessageRegenerate}
+                                        isLoading={isLoading && index === messages.length - 1}
+                                        isStreaming={isLoading && index === messages.length - 1}
+                                    />
+                                )
+                            })}
                             <div ref={messagesEndRef} aria-hidden="true" />
                         </div>
                     )}

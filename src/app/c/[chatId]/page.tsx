@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { ChatInterface } from "@/components/chat-interface"
 import { Sidebar } from "@/components/sidebar"
 import { MobileHeader } from "@/components/mobile-header"
-import { useChat, Message } from "ai/react"
+import { useChat, type Message } from "ai/react"
 import { useChatHistory } from "@/hooks/use-chat-history"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -37,6 +37,7 @@ export default function ChatPage() {
             api: "/api/chat",
             body: { userId, model: selectedModel, chatId },
             onFinish: (message) => {
+                console.log("Chat finished with message:", message)
                 // Only update chat if we have a valid chatId and messages
                 if (chatId && messages.length > 0) {
                     const updatedMessages = [...messages, message]
@@ -45,6 +46,11 @@ export default function ChatPage() {
                 }
             },
         })
+
+    // Debug: Log messages state
+    useEffect(() => {
+        console.log("Messages state in chat page:", messages)
+    }, [messages])
 
     // Memoize chat update function to prevent infinite loops
     const updateChatMemoized = useCallback(
@@ -58,10 +64,13 @@ export default function ChatPage() {
     useEffect(() => {
         if (chatId && chatsLoaded) {
             const loadChatWithDelay = async () => {
+                console.log("Loading chat:", chatId)
+
                 // Try multiple times with increasing delays
                 for (let attempt = 0; attempt < 5; attempt++) {
                     const chat = loadChat(chatId)
                     if (chat) {
+                        console.log("Chat found, loading messages:", chat.messages)
                         // Chat found, load its messages
                         setMessages(chat.messages)
 
@@ -70,12 +79,14 @@ export default function ChatPage() {
                         const pendingChatId = sessionStorage.getItem("pendingChatId")
 
                         if (pendingMessage && pendingChatId === chatId) {
+                            console.log("Found pending message:", pendingMessage)
                             // Clear pending data
                             sessionStorage.removeItem("pendingMessage")
                             sessionStorage.removeItem("pendingChatId")
 
                             // Send the pending message
                             setTimeout(() => {
+                                console.log("Appending pending message")
                                 append({
                                     role: "user",
                                     content: pendingMessage,
@@ -91,6 +102,7 @@ export default function ChatPage() {
                 }
 
                 // Chat not found after all attempts
+                console.log("Chat not found after all attempts")
                 setChatNotFound(true)
                 setIsLoaded(true)
 
@@ -143,15 +155,22 @@ export default function ChatPage() {
         [loadChat, updateChatMemoized],
     )
 
-    // Enhanced submit handler with context window management
+    // Enhanced submit handler - simplified to avoid interference
     const handleChatSubmit = useCallback(
         async (e: React.FormEvent<HTMLFormElement>) => {
             e.preventDefault()
-            if (!input.trim() || isLoading) return
+            console.log("Chat submit triggered with input:", input)
+
+            if (!input.trim() || isLoading) {
+                console.log("Submit blocked - no input or loading")
+                return
+            }
 
             // Apply context window management before submitting
             const managedMessages = contextManager.manageContextWindow(messages, selectedModel)
             setMessages(managedMessages)
+
+            console.log("Submitting with managed messages:", managedMessages)
 
             // Submit with managed messages
             handleSubmit(e)
@@ -162,6 +181,7 @@ export default function ChatPage() {
     // Update chat when messages change (but not on initial load or during loading)
     useEffect(() => {
         if (isLoaded && chatId && messages.length > 0 && !isLoading) {
+            console.log("Updating chat with messages:", messages)
             // Debounce the update to prevent excessive calls
             const timeoutId = setTimeout(() => {
                 const managedMessages = contextManager.manageContextWindow(messages, selectedModel)

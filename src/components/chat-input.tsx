@@ -5,12 +5,11 @@ import type React from "react"
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Send, Square, Plus, Mic, Zap, X, FileText, ImageIcon, Paperclip, Upload, AlertCircle } from "lucide-react"
+import { Send, Square, Plus, Mic, Zap, X, FileText, ImageIcon, Paperclip, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDropzone } from "react-dropzone"
 import { toast } from "@/hooks/use-toast"
 import { useAnnouncer } from "./accessibility-announcer"
-import { Progress } from "@/components/ui/progress"
 
 interface ChatInputProps {
     input: string
@@ -47,6 +46,7 @@ export function ChatInput({
     handleSubmit,
     isLoading,
     stop,
+    setInput,
     userId,
     onFilesAttached,
 }: ChatInputProps) {
@@ -146,24 +146,6 @@ export function ChatInput({
                     if (uploadedFile.isImage && file) {
                         const previewUrl = URL.createObjectURL(file)
                         setUploadedFiles((prev) => prev.map((f) => (f.id === uploadedFile.id ? { ...f, preview: previewUrl } : f)))
-                    }
-
-                    // Trigger webhook for file processing
-                    if (process.env.NEXT_PUBLIC_WEBHOOK_URL) {
-                        fetch("/api/webhooks", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                type: "file.uploaded",
-                                data: {
-                                    fileId: uploadedFile.id,
-                                    userId: userId || "default-user",
-                                    filename: uploadedFile.name,
-                                    fileType: uploadedFile.type,
-                                    size: uploadedFile.size,
-                                },
-                            }),
-                        }).catch(console.error)
                     }
 
                     return uploadedFile
@@ -282,18 +264,6 @@ export function ChatInput({
         })
     }
 
-    const retryUpload = async (fileId: string) => {
-        const file = uploadedFiles.find((f) => f.id === fileId)
-        if (!file) return
-
-        // This would require storing the original File object
-        // For now, just show a message
-        toast({
-            title: "Retry upload",
-            description: "Please re-select the file to retry upload",
-        })
-    }
-
     const formatFileSize = (bytes: number) => {
         if (bytes === 0) return "0 Bytes"
         const k = 1024
@@ -302,6 +272,7 @@ export function ChatInput({
         return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
     }
 
+    // Simplified form submission - let parent handle file processing
     const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
 
@@ -316,10 +287,10 @@ export function ChatInput({
             return
         }
 
-        // Submit the form
+        // Pass the form submission to parent - let parent handle file processing
         handleSubmit(e)
 
-        // Clear files after submission
+        // Clear files after successful submission
         uploadedFiles.forEach((file) => {
             if (file.preview && file.preview.startsWith("blob:")) {
                 URL.revokeObjectURL(file.preview)
@@ -338,19 +309,6 @@ export function ChatInput({
         return <FileText className="h-4 w-4 text-green-400 shrink-0" aria-hidden="true" />
     }
 
-    const getStatusColor = (status: UploadedFile["processingStatus"]) => {
-        switch (status) {
-            case "completed":
-                return "text-green-400"
-            case "processing":
-                return "text-yellow-400"
-            case "failed":
-                return "text-red-400"
-            default:
-                return "text-gray-400"
-        }
-    }
-
     const canSubmit =
         !isLoading &&
         !isUploading &&
@@ -361,61 +319,70 @@ export function ChatInput({
         <div className="w-full max-w-3xl mx-auto px-4 pb-4">
             {/* File previews */}
             {uploadedFiles.length > 0 && (
-                <div className="mb-4 space-y-2" role="region" aria-label="Attached files">
+                <div className="mb-4 space-y-2 chatgpt-file-upload-previews" role="region" aria-label="Attached files">
                     {uploadedFiles.map((file) => (
                         <div
                             key={file.id}
-                            className="flex items-center gap-3 bg-[#2f2f2f] border border-[#4d4d4d] rounded-lg p-3"
+                            className="flex items-center gap-3 bg-[#2f2f2f] border border-[#4d4d4d] rounded-lg p-3 chatgpt-file-preview transition-all duration-200 hover:bg-[#3f3f3f]"
                             role="listitem"
                         >
                             {file.isImage && file.preview ? (
-                                <img
-                                    src={file.preview || "/placeholder.svg"}
-                                    alt={`Preview of ${file.name}`}
-                                    className="w-10 h-10 object-cover rounded"
-                                />
+                                <div className="relative">
+                                    <img
+                                        src={file.preview || "/placeholder.svg"}
+                                        alt={`Preview of ${file.name}`}
+                                        className="w-12 h-12 object-cover rounded-lg border border-[#4d4d4d]"
+                                    />
+                                    {file.processingStatus === "processing" && (
+                                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
+                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        </div>
+                                    )}
+                                </div>
                             ) : (
-                                getFileIcon(file)
+                                <div className="w-12 h-12 bg-[#4d4d4d] rounded-lg flex items-center justify-center">
+                                    {getFileIcon(file)}
+                                </div>
                             )}
 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                     <p className="text-sm text-white truncate font-medium">{file.name}</p>
-                                    <span className={cn("text-xs", getStatusColor(file.processingStatus))}>{file.processingStatus}</span>
+                                    <div className="flex items-center gap-1">
+                                        <span
+                                            className={cn("text-xs px-2 py-1 rounded-full", {
+                                                "bg-green-900 text-green-300": file.processingStatus === "completed",
+                                                "bg-yellow-900 text-yellow-300": file.processingStatus === "processing",
+                                                "bg-red-900 text-red-300": file.processingStatus === "failed",
+                                                "bg-gray-700 text-gray-300": file.processingStatus === "pending",
+                                            })}
+                                        >
+                                            {file.processingStatus === "completed" && "✓"}
+                                            {file.processingStatus === "processing" && "⏳"}
+                                            {file.processingStatus === "failed" && "✗"}
+                                            {file.processingStatus === "pending" && "⏸"}
+                                            {file.processingStatus}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2 mt-1">
                                     <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
-                                    {file.uploadProgress !== undefined && file.uploadProgress < 100 && (
-                                        <div className="flex-1 max-w-[100px]">
-                                            <Progress value={file.uploadProgress} className="h-1" />
-                                        </div>
-                                    )}
                                 </div>
-                                {file.error && <p className="text-xs text-red-400 mt-1">{file.error}</p>}
+                                {file.error && (
+                                    <p className="text-xs text-red-400 mt-1 bg-red-900/20 px-2 py-1 rounded">{file.error}</p>
+                                )}
                             </div>
 
                             <div className="flex items-center gap-1">
-                                {file.processingStatus === "failed" && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => retryUpload(file.id)}
-                                        className="h-6 w-6 p-0 text-yellow-400 hover:text-yellow-300 hover:bg-[#4d4d4d] rounded shrink-0"
-                                        aria-label={`Retry upload ${file.name}`}
-                                    >
-                                        <Upload className="h-3 w-3" />
-                                    </Button>
-                                )}
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => removeFile(file.id)}
-                                    className="h-6 w-6 p-0 text-gray-400 hover:text-red-400 hover:bg-[#4d4d4d] rounded shrink-0"
+                                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-[#4d4d4d] rounded-lg shrink-0 transition-colors"
                                     aria-label={`Remove ${file.name}`}
                                 >
-                                    <X className="h-3 w-3" />
+                                    <X className="h-4 w-4" />
                                 </Button>
                             </div>
                         </div>
