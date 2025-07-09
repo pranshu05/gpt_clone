@@ -10,7 +10,7 @@ export const maxDuration = 30
 const memoryManager = new MemoryManager(
     process.env.MONGODB_URI || "",
     process.env.MONGODB_DB || "gpt_clone",
-    process.env.MONGODB_COLLECTION || "memories"
+    process.env.MONGODB_COLLECTION || "memories",
 )
 const contextManager = new ContextWindowManager()
 
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         const hasImages = lastMessage?.content?.includes("[Image uploaded:")
 
         // Process the message content to extract image URLs and document content
-        type MessageRole = "function" | "system" | "tool" | "user" | "assistant" | "data";
+        type MessageRole = "function" | "system" | "tool" | "user" | "assistant" | "data"
         interface Message {
             role: MessageRole
             content: string
@@ -94,21 +94,21 @@ export async function POST(req: NextRequest) {
             }
         })
 
-        // Get relevant memories
-        const memories = await memoryManager.getRelevantMemories(
-            userId,
-            processedMessages[processedMessages.length - 1]?.content || "",
-        )
+        // Get relevant memories with better context
+        const currentQuery = processedMessages[processedMessages.length - 1]?.content || ""
+        const memories = await memoryManager.getRelevantMemories(userId, currentQuery, 3)
 
-        // Manage context window
+        // Apply context window management BEFORE adding memories
         const managedMessages = contextManager.manageContextWindow(processedMessages, "llama-3.3-70b-versatile", memories)
 
+        // Build the final message array with proper context
         const coreMessages = [
+            // Add memory context if available
             ...(memories.length > 0
                 ? [
                     {
                         role: "system" as const,
-                        content: `Previous conversation context:\n${memories.map((m) => m.content).join("\n")}`,
+                        content: `Relevant conversation history and context:\n${memories.map((m) => `- ${m.content}`).join("\n")}\n\nUse this context to provide more personalized and contextually aware responses.`,
                     },
                 ]
                 : []),
@@ -132,11 +132,11 @@ export async function POST(req: NextRequest) {
             maxTokens: contextManager.getMaxTokensForModel("llama-3.3-70b-versatile"),
             async onFinish(completion) {
                 try {
-                    // Store memory
-                    await memoryManager.addMemory(
-                        userId,
-                        `User: ${processedMessages[processedMessages.length - 1]?.content}\nAssistant: ${completion.text}`,
-                    )
+                    // Create comprehensive memory entry
+                    const conversationContext = `Chat ID: ${chatId || "new"}\nUser Query: ${currentQuery}\nAssistant Response: ${completion.text}`
+
+                    // Store memory with better context
+                    await memoryManager.addMemory(userId, conversationContext, `Conversation from ${new Date().toISOString()}`)
 
                     // Trigger webhook for completion
                     if (process.env.WEBHOOK_URL) {
@@ -145,7 +145,13 @@ export async function POST(req: NextRequest) {
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                                 type: "chat.completed",
-                                data: { userId, chatId, messageCount: messages.length },
+                                data: {
+                                    userId,
+                                    chatId,
+                                    messageCount: messages.length,
+                                    tokensUsed: completion.usage?.totalTokens || 0,
+                                    model: "llama-3.3-70b-versatile",
+                                },
                             }),
                         }).catch(console.error)
                     }

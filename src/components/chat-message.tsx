@@ -5,25 +5,14 @@ import { useState, useEffect } from "react"
 import type { Message } from "ai"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import {
-    Copy,
-    Edit3,
-    RotateCcw,
-    Check,
-    X,
-    User,
-    ThumbsUp,
-    ThumbsDown,
-    Share,
-    MoreHorizontal,
-} from "lucide-react"
+import { Check, X, User } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { toast } from "@/hooks/use-toast"
 import ReactMarkdown from "react-markdown"
 import rehypeHighlight from "rehype-highlight"
 import "highlight.js/styles/github-dark.css"
 import { TypingAnimation, LoadingDots } from "./typing-animation"
 import { useAnnouncer } from "./accessibility-announcer"
+import { EnhancedMessageActions } from "./enhanced-message-actions"
 
 interface ChatMessageProps {
     message: Message
@@ -34,16 +23,9 @@ interface ChatMessageProps {
     isStreaming?: boolean
 }
 
-export function ChatMessage({
-    message,
-    isLast,
-    onEdit,
-    onRegenerate,
-    isLoading,
-}: ChatMessageProps) {
+export function ChatMessage({ message, isLast, onEdit, onRegenerate, isLoading }: ChatMessageProps) {
     const [isEditing, setIsEditing] = useState(false)
     const [editContent, setEditContent] = useState(message.content)
-    const [copied, setCopied] = useState(false)
     const [showTyping, setShowTyping] = useState(false)
     const { announce } = useAnnouncer()
 
@@ -51,14 +33,7 @@ export function ChatMessage({
     const isAssistant = message.role === "assistant"
 
     useEffect(() => {
-        if (
-            isAssistant &&
-            isLast &&
-            !isLoading &&
-            message.content &&
-            !showTyping &&
-            message.content.length > 0
-        ) {
+        if (isAssistant && isLast && !isLoading && message.content && !showTyping && message.content.length > 0) {
             setShowTyping(true)
         }
     }, [isAssistant, isLast, isLoading, message.content, showTyping])
@@ -66,23 +41,6 @@ export function ChatMessage({
     useEffect(() => {
         setEditContent(message.content)
     }, [message.content])
-
-    const handleCopy = async () => {
-        try {
-            await navigator.clipboard.writeText(message.content)
-            setCopied(true)
-            toast({ title: "Copied to clipboard" })
-            announce("Message copied to clipboard")
-            setTimeout(() => setCopied(false), 2000)
-        } catch (error) {
-            console.error("Failed to copy:", error)
-            toast({
-                title: "Copy failed",
-                description: "Unable to copy to clipboard",
-                variant: "destructive",
-            })
-        }
-    }
 
     const handleEdit = () => {
         if (isEditing) {
@@ -117,9 +75,7 @@ export function ChatMessage({
         <div
             className={cn(
                 "group w-full message-container",
-                isUser
-                    ? "bg-[#2f2f2f] chatgpt-message-user"
-                    : "bg-[#212121] chatgpt-message-assistant"
+                isUser ? "bg-[#2f2f2f] chatgpt-message-user" : "bg-[#212121] chatgpt-message-assistant",
             )}
             role="article"
             aria-label={`${isUser ? "Your" : "Assistant"} message`}
@@ -150,9 +106,7 @@ export function ChatMessage({
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="font-semibold text-sm text-white">
-                                {isUser ? "You" : "ChatGPT"}
-                            </span>
+                            <span className="font-semibold text-sm text-white">{isUser ? "You" : "ChatGPT"}</span>
                         </div>
 
                         {isEditing ? (
@@ -185,112 +139,40 @@ export function ChatMessage({
                                         Cancel
                                     </Button>
                                 </div>
-                                <p className="text-xs text-gray-400">
-                                    Press Ctrl+Enter to save, Escape to cancel
-                                </p>
+                                <p className="text-xs text-gray-400">Press Ctrl+Enter to save, Escape to cancel</p>
                             </div>
                         ) : (
                             <div className="prose prose-invert max-w-none">
                                 {isLoading && isLast ? (
                                     <LoadingDots />
                                 ) : isAssistant && showTyping && isLast ? (
-                                    <TypingAnimation
-                                        text={message.content}
-                                        speed={20}
-                                        onComplete={() => setShowTyping(false)}
-                                    />
+                                    <TypingAnimation text={message.content} speed={20} onComplete={() => setShowTyping(false)} />
                                 ) : isAssistant ? (
-                                    <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-                                        {message.content}
-                                    </ReactMarkdown>
+                                    <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{message.content}</ReactMarkdown>
                                 ) : (
                                     <p className="whitespace-pre-wrap text-white">{message.content}</p>
                                 )}
                             </div>
                         )}
 
-                        {/* Action buttons */}
-                        {!isEditing && !isLoading && !showTyping && (
-                            <div
-                                className="flex items-center gap-1 mt-3 message-actions"
-                                role="toolbar"
-                                aria-label="Message actions"
-                            >
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleCopy}
-                                    className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
-                                    aria-label="Copy message"
-                                >
-                                    {copied ? (
-                                        <Check className="h-4 w-4" aria-hidden="true" />
-                                    ) : (
-                                        <Copy className="h-4 w-4" aria-hidden="true" />
-                                    )}
-                                </Button>
-
-                                {isAssistant && (
-                                    <>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
-                                            aria-label="Like message"
-                                        >
-                                            <ThumbsUp className="h-4 w-4" aria-hidden="true" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
-                                            aria-label="Dislike message"
-                                        >
-                                            <ThumbsDown className="h-4 w-4" aria-hidden="true" />
-                                        </Button>
-                                        {isLast && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => onRegenerate(message.id)}
-                                                className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
-                                                aria-label="Regenerate response"
-                                            >
-                                                <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                                            </Button>
-                                        )}
-                                    </>
-                                )}
-
-                                {isUser && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setIsEditing(true)}
-                                        className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
-                                        aria-label="Edit message"
-                                    >
-                                        <Edit3 className="h-4 w-4" aria-hidden="true" />
-                                    </Button>
-                                )}
-
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
-                                    aria-label="Share message"
-                                >
-                                    <Share className="h-4 w-4" aria-hidden="true" />
-                                </Button>
-
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#2f2f2f] rounded-lg focus-visible:ring-2 focus-visible:ring-[#10a37f]"
-                                    aria-label="More options"
-                                >
-                                    <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                                </Button>
+                        {/* Enhanced Action buttons */}
+                        {!isEditing && (
+                            <div className="mt-3">
+                                <EnhancedMessageActions
+                                    messageId={message.id}
+                                    content={message.content}
+                                    isUser={isUser}
+                                    isLast={isLast}
+                                    isLoading={isLoading || false}
+                                    isStreaming={showTyping}
+                                    onEdit={onEdit}
+                                    onRegenerate={onRegenerate}
+                                    onFeedback={(messageId, type) => {
+                                        // Handle feedback - could integrate with analytics
+                                        console.log(`Feedback for ${messageId}: ${type}`)
+                                        announce(`Message marked as ${type}`)
+                                    }}
+                                />
                             </div>
                         )}
                     </div>

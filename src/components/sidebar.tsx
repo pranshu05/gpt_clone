@@ -168,8 +168,18 @@ export function Sidebar({
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="bg-[#2d2d2d] border-[#4d4d4d] text-white">
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">GPT-4</DropdownMenuItem>
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">GPT-3.5</DropdownMenuItem>
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-sm"></div>
+                                    <span>GPT-4</span>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-[#10a37f] rounded-sm"></div>
+                                    <span>GPT-3.5</span>
+                                </div>
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

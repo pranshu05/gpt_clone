@@ -12,6 +12,8 @@ import { ArrowDown, Share, MoreHorizontal, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ContextIndicator } from "./context-indicator"
 import { useAnnouncer } from "./accessibility-announcer"
+import { MemoryIndicator } from "./memory-indicator"
+import { ContextWindowManager } from "@/lib/context-window-manager"
 
 interface UploadedFile {
     id: string
@@ -153,6 +155,10 @@ export function ChatInterface({
             enhancedInput = `${input}\n\n${fileDescriptions}`.trim()
         }
 
+        const contextManager = new ContextWindowManager()
+        const managedMessages = contextManager.manageContextWindow(messages, selectedModel)
+        setMessages(managedMessages)
+
         // Temporarily update input
         setInput(enhancedInput)
 
@@ -183,13 +189,26 @@ export function ChatInterface({
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="bg-[#2d2d2d] border-[#4d4d4d] text-white">
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">GPT-4</DropdownMenuItem>
-                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">GPT-3.5</DropdownMenuItem>
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-gradient-to-r from-purple-500 to-pink-500 rounded-sm"></div>
+                                    <span>GPT-4</span>
+                                </div>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="hover:bg-[#3d3d3d] focus:bg-[#3d3d3d]">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-[#10a37f] rounded-sm"></div>
+                                    <span>GPT-3.5</span>
+                                </div>
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* Context indicator */}
-                    {messages.length > 0 && <ContextIndicator messages={messages} selectedModel={selectedModel} />}
+                    {/* Context and Memory indicators */}
+                    <div className="flex items-center gap-2">
+                        {messages.length > 0 && <ContextIndicator messages={messages} selectedModel={selectedModel} />}
+                        {userId && <MemoryIndicator userId={userId} currentQuery={input} />}
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
